@@ -67,3 +67,7 @@ Thumbs.db
 # Application-specific
 downloads/
 snapshots/
+
+# Configuration files (contain sensitive data)
+config/db_connection.json
+config/search_filters.json

@@ -1,6 +1,6 @@
 """Main application window for Cassandra Snapshot Downloader."""
 
-from datetime import date
+from datetime import date, datetime
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QSpinBox, QPushButton, QMessageBox,
@@ -14,6 +14,7 @@ from database.models import ConnectionConfiguration
 from downloader.download_manager import DownloadManager
 from downloader.file_handler import ensure_directory_writable
 from config.settings import TABLE_DISPLAY_LIMIT
+from config.config_manager import ConfigManager
 from utils.validators import validate_date_range, validate_eqpid
 import cassandra
 
@@ -25,11 +26,13 @@ class MainWindow(QMainWindow):
         """Initialize the main window with basic setup."""
         super().__init__()
         self.cassandra_client = CassandraClient()
+        self.config_manager = ConfigManager()
         self.search_results = []
         self.download_thread = None
         self.save_path = ""
 
         self._setup_ui()
+        self._load_saved_config()
 
     def _setup_ui(self):
         """Setup the user interface layout."""
@@ -55,6 +58,43 @@ class MainWindow(QMainWindow):
 
         # Add progress and log section
         main_layout.addWidget(self._create_progress_section())
+
+    def _load_saved_config(self):
+        """Load saved configuration from files and populate UI fields."""
+        # Load database connection config
+        try:
+            db_config = self.config_manager.load_db_connection()
+            if db_config:
+                self.host_edit.setText(db_config.get("host", ""))
+                self.port_spin.setValue(db_config.get("port", 9042))
+                self.username_edit.setText(db_config.get("username", ""))
+                self.password_edit.setText(db_config.get("password", ""))
+                self.keyspace_edit.setText(db_config.get("keyspace", ""))
+        except Exception as e:
+            # If loading fails, just continue with empty fields
+            print(f"Failed to load database connection config: {e}")
+
+        # Load search filters config
+        try:
+            search_config = self.config_manager.load_search_filters()
+            if search_config:
+                # Parse date strings and set date fields
+                start_date_str = search_config.get("start_date")
+                end_date_str = search_config.get("end_date")
+                equipment_id = search_config.get("equipment_id", "")
+
+                if start_date_str:
+                    start_date = datetime.fromisoformat(start_date_str).date()
+                    self.start_date_edit.setDate(QDate(start_date.year, start_date.month, start_date.day))
+
+                if end_date_str:
+                    end_date = datetime.fromisoformat(end_date_str).date()
+                    self.end_date_edit.setDate(QDate(end_date.year, end_date.month, end_date.day))
+
+                self.eqpid_edit.setText(equipment_id)
+        except Exception as e:
+            # If loading fails, dates will remain as today (default)
+            print(f"Failed to load search filters config: {e}")
 
     def _create_connection_section(self) -> QGroupBox:
         """Create the database connection settings section."""
@@ -160,6 +200,18 @@ class MainWindow(QMainWindow):
                 # Test the connection
                 test_success, test_message = self.cassandra_client.test_connection()
                 if test_success:
+                    # Save database connection config on successful connection
+                    try:
+                        self.config_manager.save_db_connection(
+                            host=config.host,
+                            port=config.port,
+                            username=config.username,
+                            password=config.password,
+                            keyspace=config.keyspace
+                        )
+                    except Exception as e:
+                        print(f"Failed to save database connection config: {e}")
+
                     QMessageBox.information(self, "Connection Successful", message)
                     self._update_connection_status(f"Connected: {config.contact_point}", True)
                     self.disconnect_button.setEnabled(True)
@@ -207,13 +259,13 @@ class MainWindow(QMainWindow):
         date_layout.addWidget(QLabel("Start Date:"))
         self.start_date_edit = QDateEdit()
         self.start_date_edit.setCalendarPopup(True)
-        self.start_date_edit.setDate(QDate.currentDate().addDays(-30))
+        self.start_date_edit.setDate(QDate.currentDate())  # Default to today
         date_layout.addWidget(self.start_date_edit)
 
         date_layout.addWidget(QLabel("End Date:"))
         self.end_date_edit = QDateEdit()
         self.end_date_edit.setCalendarPopup(True)
-        self.end_date_edit.setDate(QDate.currentDate())
+        self.end_date_edit.setDate(QDate.currentDate())  # Default to today
         date_layout.addWidget(self.end_date_edit)
         layout.addLayout(date_layout)
 
@@ -274,6 +326,16 @@ class MainWindow(QMainWindow):
         if not is_valid_date:
             QMessageBox.warning(self, "Invalid Date Range", date_error)
             return
+
+        # Save search filters to config
+        try:
+            self.config_manager.save_search_filters(
+                start_date=start_date,
+                end_date=end_date,
+                equipment_id=eqpid
+            )
+        except Exception as e:
+            print(f"Failed to save search filters config: {e}")
 
         try:
             # Count total results

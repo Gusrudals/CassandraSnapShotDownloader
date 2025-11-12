@@ -113,8 +113,8 @@ class CassandraClient:
             return (False, "No active connection - call connect() first")
 
         try:
-            # Execute lightweight query
-            self.session.execute("SELECT count(*) FROM snapshot LIMIT 1", timeout=CONNECTION_TIMEOUT)
+            # Execute lightweight query on system table (Cassandra 3.11.6 compatible)
+            self.session.execute("SELECT cluster_name FROM system.local", timeout=CONNECTION_TIMEOUT)
             return (True, "Connection test passed")
         except cassandra.OperationTimedOut:
             return (
@@ -174,36 +174,21 @@ class CassandraClient:
 
         results = []
 
-        # Generate all year-month combinations in range
-        current = start_date.replace(day=1)
-        while current <= end_date:
-            year, month = current.year, current.month
+        # Query each day individually (required due to partition key structure)
+        # Partition key: (eqpid, year, month, day) - all must be exact matches
+        query = """
+        SELECT year, month, day, eqpid, fname, image
+        FROM snapshot
+        WHERE eqpid = %s AND year = %s AND month = %s AND day = %s
+        """
 
-            # Determine day range for this month
-            if current.year == start_date.year and current.month == start_date.month:
-                start_day = start_date.day
-            else:
-                start_day = 1
-
-            if current.year == end_date.year and current.month == end_date.month:
-                end_day = end_date.day
-            else:
-                # Last day of month
-                if month == 12:
-                    next_month = current.replace(year=year + 1, month=1)
-                else:
-                    next_month = current.replace(month=month + 1)
-                end_day = (next_month - timedelta(days=1)).day
-
-            # Query this month's data
-            query = """
-            SELECT year, month, day, eqpid, fname, image
-            FROM snapshot
-            WHERE year = ? AND month = ? AND day >= ? AND day <= ? AND eqpid = ?
-            """
-
+        current_date = start_date
+        while current_date <= end_date:
             try:
-                rows = self.session.execute(query, (year, month, start_day, end_day, eqpid))
+                rows = self.session.execute(
+                    query,
+                    (eqpid, current_date.year, current_date.month, current_date.day)
+                )
 
                 for row in rows:
                     snapshot = SnapshotRecord(
@@ -226,11 +211,8 @@ class CassandraClient:
                     "Try narrowing your date range or check database performance."
                 )
 
-            # Move to next month
-            if month == 12:
-                current = current.replace(year=year + 1, month=1)
-            else:
-                current = current.replace(month=month + 1)
+            # Move to next day
+            current_date = current_date + timedelta(days=1)
 
         return results
 
@@ -267,35 +249,20 @@ class CassandraClient:
 
         total_count = 0
 
-        # Generate all year-month combinations in range
-        current = start_date.replace(day=1)
-        while current <= end_date:
-            year, month = current.year, current.month
+        # Query each day individually (required due to partition key structure)
+        # Partition key: (eqpid, year, month, day) - all must be exact matches
+        query = """
+        SELECT COUNT(*) FROM snapshot
+        WHERE eqpid = %s AND year = %s AND month = %s AND day = %s
+        """
 
-            # Determine day range for this month
-            if current.year == start_date.year and current.month == start_date.month:
-                start_day = start_date.day
-            else:
-                start_day = 1
-
-            if current.year == end_date.year and current.month == end_date.month:
-                end_day = end_date.day
-            else:
-                # Last day of month
-                if month == 12:
-                    next_month = current.replace(year=year + 1, month=1)
-                else:
-                    next_month = current.replace(month=month + 1)
-                end_day = (next_month - timedelta(days=1)).day
-
-            # Count this month's data
-            query = """
-            SELECT COUNT(*) FROM snapshot
-            WHERE year = ? AND month = ? AND day >= ? AND day <= ? AND eqpid = ?
-            """
-
+        current_date = start_date
+        while current_date <= end_date:
             try:
-                rows = self.session.execute(query, (year, month, start_day, end_day, eqpid))
+                rows = self.session.execute(
+                    query,
+                    (eqpid, current_date.year, current_date.month, current_date.day)
+                )
                 total_count += rows[0].count
 
             except cassandra.OperationTimedOut:
@@ -304,10 +271,7 @@ class CassandraClient:
                     "Try narrowing your date range or check database performance."
                 )
 
-            # Move to next month
-            if month == 12:
-                current = current.replace(year=year + 1, month=1)
-            else:
-                current = current.replace(month=month + 1)
+            # Move to next day
+            current_date = current_date + timedelta(days=1)
 
         return total_count
