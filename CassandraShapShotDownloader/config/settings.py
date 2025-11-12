@@ -8,7 +8,7 @@ QUERY_TIMEOUT = 10.0
 TABLE_DISPLAY_LIMIT = 20
 
 # Date range limits
-MAX_DATE_RANGE_DAYS = 365
+MAX_DATE_RANGE_DAYS = 7
 
 # Progress update frequency
 PROGRESS_UPDATE_INTERVAL = 10  # Update UI every N files

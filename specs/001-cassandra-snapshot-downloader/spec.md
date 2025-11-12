@@ -17,10 +17,11 @@ As a database operator, I need to connect to the Cassandra database and verify t
 
 **Acceptance Scenarios**:
 
-1. **Given** the application is launched, **When** I enter valid connection details (Host, Port, Username, Password, Keyspace) and click "Test Connection", **Then** the system displays "Connection Successful" message and enables search functionality
-2. **Given** I enter invalid credentials, **When** I click "Test Connection", **Then** the system displays a clear error message explaining the connection failure (e.g., "Authentication failed: Invalid username or password")
-3. **Given** the database server is unreachable, **When** I attempt to connect, **Then** the system displays a timeout error within 5 seconds with guidance to check network connectivity
-4. **Given** I enter incorrect Keyspace name, **When** I test connection, **Then** the system displays "Keyspace not found" error message
+1. **Given** the application is launched, **When** I enter valid connection details (Host, Port, Username, Password, Keyspace) and click "Test Connection", **Then** the system displays "Connection Successful" message, enables search functionality, and automatically saves the connection settings to config file
+2. **Given** I have previously connected successfully, **When** I launch the application, **Then** the system automatically populates the connection fields with the saved values from the last successful connection
+3. **Given** I enter invalid credentials, **When** I click "Test Connection", **Then** the system displays a clear error message explaining the connection failure (e.g., "Authentication failed: Invalid username or password")
+4. **Given** the database server is unreachable, **When** I attempt to connect, **Then** the system displays a timeout error within 5 seconds with guidance to check network connectivity
+5. **Given** I enter incorrect Keyspace name, **When** I test connection, **Then** the system displays "Keyspace not found" error message
 
 ---
 
@@ -34,12 +35,14 @@ As a database operator, I need to search for snapshots by date range and equipme
 
 **Acceptance Scenarios**:
 
-1. **Given** I am connected to the database, **When** I select a date range (start date to end date), enter an equipment ID, and click "Search", **Then** the system displays up to 20 matching snapshot records in a table showing year, month, day, eqpid, and fname
-2. **Given** search results exceed 20 records, **When** results are displayed, **Then** the system shows "Total: 1,234 records (showing first 20)" message
-3. **Given** I click on a column header in the results table, **When** the table is displayed, **Then** the results are sorted by that column (ascending/descending toggle)
-4. **Given** I attempt to search without entering required equipment ID, **When** I click "Search", **Then** the system displays warning message "Equipment ID is required" and prevents the search
-5. **Given** I select only a start date without end date, **When** I search, **Then** the system searches from start date to current date
-6. **Given** the search query takes longer than 10 seconds, **When** waiting for results, **Then** the system displays a timeout error and allows me to refine search criteria
+1. **Given** I launch the application for the first time, **When** the search filters section is displayed, **Then** the Start Date and End Date fields are both initialized to today's date and Equipment ID field is empty
+2. **Given** I have previously performed a search, **When** I launch the application, **Then** the search filters (Start Date, End Date, Equipment ID) are automatically populated with the values from my last search
+3. **Given** I am connected to the database, **When** I select a date range (start date to end date), enter an equipment ID, and click "Search", **Then** the system displays up to 20 matching snapshot records in a table showing year, month, day, eqpid, and fname, and saves these filter values to config file
+4. **Given** search results exceed 20 records, **When** results are displayed, **Then** the system shows "Total: 1,234 records (showing first 20)" message
+5. **Given** I click on a column header in the results table, **When** the table is displayed, **Then** the results are sorted by that column (ascending/descending toggle)
+6. **Given** I attempt to search without entering required equipment ID, **When** I click "Search", **Then** the system displays warning message "Equipment ID is required" and prevents the search
+7. **Given** I select only a start date without end date, **When** I search, **Then** the system searches from start date to current date
+8. **Given** the search query takes longer than 10 seconds, **When** waiting for results, **Then** the system displays a timeout error and allows me to refine search criteria
 
 ---
 
@@ -148,76 +151,84 @@ As a database operator, I need my database password to be protected from casual 
 
 ### Functional Requirements
 
-#### Database Connection (FR-001 to FR-005)
+#### Database Connection (FR-001 to FR-007)
 
 - **FR-001**: System MUST allow users to input Cassandra connection parameters: Host (IP/hostname), Port (number), Username (text), Password (masked text), and Keyspace (text)
 - **FR-002**: System MUST provide a "Test Connection" button that validates connectivity and authentication within 5 seconds
 - **FR-003**: System MUST display connection status clearly (e.g., "Connected", "Disconnected", "Error: [details]")
 - **FR-004**: System MUST prevent search and download operations when database is not connected
 - **FR-005**: System MUST authenticate using username and password credentials via Cassandra's standard authentication mechanism
+- **FR-006**: System MUST save connection parameters to config file (`config/db_connection.json`) upon successful connection test
+- **FR-007**: System MUST load saved connection parameters from config file on application startup and populate the connection fields with saved values if available
 
-#### Search Functionality (FR-006 to FR-012)
+#### Search Functionality (FR-008 to FR-016)
 
-- **FR-006**: System MUST provide date range selection using calendar widgets for start date and end date
-- **FR-007**: System MUST provide text input field for equipment ID (eqpid) marked as required
-- **FR-008**: System MUST validate that equipment ID is not empty before executing search
-- **FR-009**: System MUST query Cassandra table `snapshot` with WHERE clause filtering by year/month/day range and eqpid
-- **FR-010**: System MUST retrieve all matching records from the database (not limited to display count)
-- **FR-011**: System MUST display search results in a table with columns: year, month, day, eqpid, fname (excluding image column)
-- **FR-012**: System MUST display total record count with format "Total: [N] records (showing first 20)" or "Total: [N] records" if 20 or fewer
+- **FR-008**: System MUST provide date range selection using calendar widgets for start date and end date
+- **FR-009**: System MUST initialize Start Date and End Date fields to today's date on first application launch (when no saved filters exist)
+- **FR-010**: System MUST provide text input field for equipment ID (eqpid) marked as required
+- **FR-011**: System MUST validate that equipment ID is not empty before executing search
+- **FR-012**: System MUST query Cassandra table `snapshot` with WHERE clause filtering by year/month/day range and eqpid
+- **FR-013**: System MUST retrieve all matching records from the database (not limited to display count)
+- **FR-014**: System MUST display search results in a table with columns: year, month, day, eqpid, fname (excluding image column)
+- **FR-015**: System MUST display total record count with format "Total: [N] records (showing first 20)" or "Total: [N] records" if 20 or fewer
+- **FR-016**: System MUST save search filter values (Start Date, End Date, Equipment ID) to config file (`config/search_filters.json`) each time the Search button is clicked
+- **FR-017**: System MUST load saved search filter values from config file on application startup and populate the search fields if saved values exist (taking precedence over default today's date)
 
-#### Results Display (FR-013 to FR-015)
+#### Results Display (FR-018 to FR-020)
 
-- **FR-013**: System MUST limit table display to first 20 records regardless of total result count
-- **FR-014**: System MUST allow users to sort table by clicking column headers (toggle ascending/descending)
-- **FR-015**: System MUST enable download controls only after successful search with results
+- **FR-018**: System MUST limit table display to first 20 records regardless of total result count
+- **FR-019**: System MUST allow users to sort table by clicking column headers (toggle ascending/descending)
+- **FR-020**: System MUST enable download controls only after successful search with results
 
-#### Download Functionality (FR-016 to FR-024)
+#### Download Functionality (FR-021 to FR-029)
 
-- **FR-016**: System MUST provide folder browser dialog for selecting save path
-- **FR-017**: System MUST download ALL matching records from search query (not just the 20 displayed)
-- **FR-018**: System MUST create hierarchical folder structure: `[SavePath]/[Year]/[Month]/[Day]/[EquipmentID]/`
-- **FR-019**: System MUST convert image ByteArray from database to PNG file format
-- **FR-020**: System MUST save files using the original fname from the database
-- **FR-021**: System MUST check if file exists before writing and skip if already present (no overwrite)
-- **FR-022**: System MUST display progress bar showing percentage complete during download
-- **FR-023**: System MUST display progress as "[current]/[total]" file count
-- **FR-024**: System MUST log each file operation with status: Success, Failed, or Skipped
+- **FR-021**: System MUST provide folder browser dialog for selecting save path
+- **FR-022**: System MUST download ALL matching records from search query (not just the 20 displayed)
+- **FR-023**: System MUST create hierarchical folder structure: `[SavePath]/[Year]/[Month]/[Day]/[EquipmentID]/`
+- **FR-024**: System MUST convert image ByteArray from database to PNG file format
+- **FR-025**: System MUST save files using the original fname from the database
+- **FR-026**: System MUST check if file exists before writing and skip if already present (no overwrite)
+- **FR-027**: System MUST display progress bar showing percentage complete during download
+- **FR-028**: System MUST display progress as "[current]/[total]" file count
+- **FR-029**: System MUST log each file operation with status: Success, Failed, or Skipped
 
-#### User Interface Layout (FR-025 to FR-029)
+#### User Interface Layout (FR-030 to FR-034)
 
-- **FR-025**: System MUST arrange UI in vertical sections: Connection Settings (top), Search Filters (below connection), Results Table (center, largest area), Download Controls (bottom), Progress and Logs (bottom-most)
-- **FR-026**: System MUST keep UI responsive during all operations (respond to user input within 1 second)
-- **FR-027**: System MUST execute database queries and file operations in background threads to prevent UI blocking
-- **FR-028**: System MUST provide "Cancel Download" button that becomes visible during active downloads
-- **FR-029**: System MUST process cancellation gracefully, completing current file before stopping
+- **FR-030**: System MUST arrange UI in vertical sections: Connection Settings (top), Search Filters (below connection), Results Table (center, largest area), Download Controls (bottom), Progress and Logs (bottom-most)
+- **FR-031**: System MUST keep UI responsive during all operations (respond to user input within 1 second)
+- **FR-032**: System MUST execute database queries and file operations in background threads to prevent UI blocking
+- **FR-033**: System MUST provide "Cancel Download" button that becomes visible during active downloads
+- **FR-034**: System MUST process cancellation gracefully, completing current file before stopping
 
-#### Error Handling (FR-030 to FR-036)
+#### Error Handling (FR-035 to FR-041)
 
-- **FR-030**: System MUST display clear error messages for connection failures including reason (authentication, network, timeout, invalid keyspace)
-- **FR-031**: System MUST handle query timeouts by displaying error after 10 seconds and allowing retry
-- **FR-032**: System MUST detect disk write failures and display specific error (insufficient space, permission denied, path invalid)
-- **FR-033**: System MUST detect corrupted or invalid image data and skip those records with logged error
-- **FR-034**: System MUST continue downloading remaining files if individual file operations fail
-- **FR-035**: System MUST provide actionable guidance in all error messages (what to check, how to fix)
-- **FR-036**: System MUST log all errors with timestamp, filename (if applicable), and error details
+- **FR-035**: System MUST display clear error messages for connection failures including reason (authentication, network, timeout, invalid keyspace)
+- **FR-036**: System MUST handle query timeouts by displaying error after 10 seconds and allowing retry
+- **FR-037**: System MUST detect disk write failures and display specific error (insufficient space, permission denied, path invalid)
+- **FR-038**: System MUST detect corrupted or invalid image data and skip those records with logged error
+- **FR-039**: System MUST continue downloading remaining files if individual file operations fail
+- **FR-040**: System MUST provide actionable guidance in all error messages (what to check, how to fix)
+- **FR-041**: System MUST log all errors with timestamp, filename (if applicable), and error details
 
-#### Security (FR-037 to FR-038)
+#### Security and Configuration (FR-042 to FR-044)
 
-- **FR-037**: System MUST display password field characters as masked symbols (e.g., • or *)
-- **FR-038**: System MUST store connection credentials only in application memory during runtime (not persisted to disk)
+- **FR-042**: System MUST display password field characters as masked symbols (e.g., • or *)
+- **FR-043**: System MUST store connection credentials in config file (`config/db_connection.json`) in plaintext for convenience (encryption not required per user specification)
+- **FR-044**: System MUST exclude config files containing credentials from version control by adding them to `.gitignore`
 
-#### Performance and Scalability (FR-039 to FR-041)
+#### Performance and Scalability (FR-045 to FR-047)
 
-- **FR-039**: System MUST process downloads in batches to avoid loading all image data into memory simultaneously
-- **FR-040**: System MUST handle search result sets of 10,000+ records without memory overflow
-- **FR-041**: System MUST optimize download throughput by processing files sequentially with minimal delay between operations
+- **FR-045**: System MUST process downloads in batches to avoid loading all image data into memory simultaneously
+- **FR-046**: System MUST handle search result sets of 10,000+ records without memory overflow
+- **FR-047**: System MUST optimize download throughput by processing files sequentially with minimal delay between operations
 
 ### Key Entities
 
 - **Snapshot**: Represents a screenshot image captured at a specific time for a specific equipment. Attributes include temporal data (year, month, day), equipment identifier (eqpid), filename with metadata (epoch time, click coordinates), and binary image data.
 
-- **Connection Configuration**: Represents the credentials and location needed to access the Cassandra database. Includes host address, port number, authentication credentials (username, password), and keyspace identifier.
+- **Connection Configuration**: Represents the credentials and location needed to access the Cassandra database. Includes host address, port number, authentication credentials (username, password), and keyspace identifier. Persisted to `config/db_connection.json` for automatic loading on subsequent application launches.
+
+- **Search Filter Configuration**: Represents the search criteria for querying snapshots. Includes start date, end date, and equipment ID. Persisted to `config/search_filters.json` after each search operation for automatic restoration on subsequent application launches.
 
 - **Download Job**: Represents a batch download operation. Tracks source query criteria, destination path, total file count, processed count, success/failure/skip counts, and current status (running, cancelled, completed, failed).
 
@@ -250,6 +261,8 @@ As a database operator, I need my database password to be protected from casual 
 8. **Local Disk Capacity**: Users have sufficient local disk space for their intended downloads (application will detect exhaustion but assumes initial capacity)
 9. **Standard Authentication**: Cassandra cluster uses standard username/password authentication (not Kerberos or other advanced methods)
 10. **Desktop Environment**: Application runs on standard desktop OS with GUI support and adequate system resources (minimum 2GB RAM, dual-core CPU)
+11. **Config File Security**: Users accept that connection credentials (including passwords) are stored in plaintext in local config files for convenience, and are responsible for protecting their local file system from unauthorized access
+12. **Config File Persistence**: Users understand that saved connection and search filter settings persist across application sessions and will automatically populate on next launch
 
 ### Dependencies
 
