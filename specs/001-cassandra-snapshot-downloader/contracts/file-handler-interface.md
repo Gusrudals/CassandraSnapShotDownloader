@@ -121,6 +121,9 @@ def save_image(
         - Explicitly specify format: img.save(file_path, 'PNG')
         - Validate image_bytes is not None/empty before processing
         - Use context manager for automatic resource cleanup
+        - Handle Cassandra blob type compatibility: if image_bytes is str (when
+          Cassandra driver returns blob as string), convert to bytes using
+          latin-1 encoding to preserve binary data integrity
     """
 ```
 

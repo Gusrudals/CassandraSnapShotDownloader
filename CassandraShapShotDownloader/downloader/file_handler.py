@@ -111,6 +111,10 @@ def save_image(image_bytes: bytes, file_path: str) -> None:
     if not image_bytes:
         raise ValueError("Image data is empty")
 
+    # Handle case where Cassandra returns blob as str instead of bytes
+    if isinstance(image_bytes, str):
+        image_bytes = image_bytes.encode('latin-1')
+
     try:
         with Image.open(BytesIO(image_bytes)) as img:
             img.save(file_path, 'PNG')
