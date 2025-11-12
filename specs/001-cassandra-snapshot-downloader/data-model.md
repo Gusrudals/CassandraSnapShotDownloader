@@ -27,7 +27,7 @@ Represents a single screenshot snapshot retrieved from the Cassandra database.
 | day | int | Yes | Day of month when snapshot was captured | 1 ≤ day ≤ 31 |
 | eqpid | str | Yes | Equipment identifier (unique device/camera name) | Non-empty string, alphanumeric + underscore |
 | fname | str | Yes | Filename containing epoch time and coordinates | Non-empty string, must be sanitized before filesystem use |
-| image | bytes | Yes | Binary image data (PNG format ByteArray) | Non-None, non-empty bytes object |
+| image | bytes | Yes | Binary image data (PNG format ByteArray) | Non-None, non-empty bytes object. May be hex-encoded Base64 string from Cassandra blob, requires multi-step decoding (hex→Base64→raw PNG) |
 
 **Python Implementation**:
 ```python

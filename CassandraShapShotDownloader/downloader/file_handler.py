@@ -3,6 +3,7 @@
 import os
 import re
 import tempfile
+import base64
 from PIL import Image
 from io import BytesIO
 
@@ -113,7 +114,20 @@ def save_image(image_bytes: bytes, file_path: str) -> None:
 
     # Handle case where Cassandra returns blob as str instead of bytes
     if isinstance(image_bytes, str):
-        image_bytes = image_bytes.encode('latin-1')
+        # Check if it's a hex string (Cassandra blob stored as hex)
+        try:
+            # Try to decode from hex first
+            image_bytes = bytes.fromhex(image_bytes)
+        except (ValueError, AttributeError):
+            # If not hex, try latin-1 encoding
+            image_bytes = image_bytes.encode('latin-1')
+
+    # Check if data is Base64 encoded (starts with common Base64 PNG prefix)
+    if isinstance(image_bytes, bytes) and image_bytes.startswith(b'iVBOR'):
+        try:
+            image_bytes = base64.b64decode(image_bytes)
+        except Exception:
+            pass  # If decode fails, continue with original data
 
     try:
         with Image.open(BytesIO(image_bytes)) as img:

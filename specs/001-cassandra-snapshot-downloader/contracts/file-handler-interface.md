@@ -121,9 +121,12 @@ def save_image(
         - Explicitly specify format: img.save(file_path, 'PNG')
         - Validate image_bytes is not None/empty before processing
         - Use context manager for automatic resource cleanup
-        - Handle Cassandra blob type compatibility: if image_bytes is str (when
-          Cassandra driver returns blob as string), convert to bytes using
-          latin-1 encoding to preserve binary data integrity
+        - Handle Cassandra blob encoding formats (multi-step decoding):
+          1. If data is string: decode from hex to bytes (bytes.fromhex())
+          2. If hex decode fails: fall back to latin-1 encoding
+          3. If result starts with 'iVBOR' (Base64 PNG signature): decode Base64
+          4. Final result is raw PNG binary data for PIL processing
+        - This handles cases where Cassandra stores blobs as hex-encoded Base64 strings
     """
 ```
 

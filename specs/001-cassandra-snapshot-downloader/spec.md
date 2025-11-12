@@ -133,7 +133,7 @@ As a database operator, I need my database password to be protected from casual 
   - System logs "Failed: [filename] - No image data" and continues to next snapshot
 
 - **What happens when Cassandra returns blob data as string instead of bytes**?
-  - System automatically converts string to bytes using latin-1 encoding to preserve binary data integrity before processing the image
+  - System automatically handles multiple encoding formats: first attempts hex decoding (bytes.fromhex), then checks for Base64 encoding (if starts with 'iVBOR'), finally decodes to raw binary PNG data. This handles hex-encoded Base64 strings commonly returned by Cassandra blob columns
 
 - **What happens when user attempts to download while no search has been performed**?
   - Download button remains disabled until search results are loaded
